@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POMPOM PDP Tagger</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-logo">POMPOM <span>PDP Tagger</span></div>
+    <nav class="header-nav">
+      <button class="nav-step active" data-screen="1">
+        <span class="step-num">1</span> Setup
+      </button>
+      <span class="nav-sep">›</span>
+      <button class="nav-step" data-screen="2" disabled>
+        <span class="step-num">2</span> Tag
+      </button>
+      <span class="nav-sep">›</span>
+      <button class="nav-step" data-screen="3" disabled>
+        <span class="step-num">3</span> Run
+      </button>
+    </nav>
+  </header>
+
+  <!-- ─── Screen 1: Shoot Setup ─────────────────────────────────────────────── -->
+  <main id="screen-1" class="screen active">
+
+    <div class="screen-intro">
+      <h1>Shoot Setup</h1>
+      <p>Connect Google Drive, load a client folder, then assign model face and background per look.</p>
+    </div>
+
+    <!-- Step 1: Connect Drive -->
+    <section class="card" id="card-drive">
+      <div class="card-label">Step 1</div>
+      <h2>Connect Google Drive</h2>
+      <div class="status-row" id="drive-status-row">
+        <span class="status-dot" id="drive-dot"></span>
+        <span id="drive-status-text">Not connected</span>
+      </div>
+      <button class="btn btn-primary" id="btn-connect-drive">Connect Google Drive</button>
+    </section>
+
+    <!-- Step 2: Load Folder -->
+    <section class="card hidden" id="card-folder">
+      <div class="card-label">Step 2</div>
+      <h2>Load Client Folder</h2>
+      <p class="help-text">Paste a Google Drive folder URL or bare folder ID.</p>
+      <div class="input-group">
+        <input
+          type="text"
+          id="input-folder"
+          placeholder="https://drive.google.com/drive/folders/…"
+          spellcheck="false"
+        />
+        <button class="btn btn-primary" id="btn-load-folder">Load</button>
+      </div>
+      <div id="folder-meta" class="folder-meta hidden"></div>
+    </section>
+
+    <!-- Step 3: Configure Looks -->
+    <section class="card hidden" id="card-looks">
+      <div class="card-label">Step 3</div>
+      <h2>Assign Model + Background</h2>
+      <p class="help-text">
+        Model faces from <code>Models/</code> · Backgrounds from <code>Backgrounds/</code>
+      </p>
+      <div id="looks-grid" class="looks-grid"></div>
+    </section>
+
+    <!-- Footer / Next -->
+    <div class="screen-footer hidden" id="footer-s1">
+      <p id="setup-summary" class="footer-summary"></p>
+      <button class="btn btn-primary btn-lg" id="btn-to-tagger">
+        Next: Tag Photos →
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ─── Screen 2: Photo Tagger ────────────────────────────────────────────── -->
+  <main id="screen-2" class="screen hidden">
+    <div class="screen-intro">
+      <h1>Photo Tagger</h1>
+    </div>
+    <div class="placeholder-screen">
+      <div class="placeholder-icon">🏷️</div>
+      <p>Screen 2 coming next session.</p>
+      <p class="dim" id="s2-summary"></p>
+      <button class="btn btn-ghost" id="btn-back-setup">← Back to Setup</button>
+    </div>
+  </main>
+
+  <!-- ─── Screen 3: Review & Run ────────────────────────────────────────────── -->
+  <main id="screen-3" class="screen hidden">
+    <div class="screen-intro">
+      <h1>Review &amp; Run</h1>
+    </div>
+    <div class="placeholder-screen">
+      <div class="placeholder-icon">🚀</div>
+      <p>Screen 3 coming next session.</p>
+    </div>
+  </main>
+
+  <!-- ─── Asset Picker Modal ────────────────────────────────────────────────── -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3 id="modal-title">Select Image</h3>
+        <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="modal-grid" class="asset-grid"></div>
+        <div id="modal-empty" class="modal-empty hidden">
+          No images found in this folder.
+        </div>
+        <div id="modal-loading" class="modal-loading">
+          <div class="spinner"></div>
+          <span>Loading…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/drive.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
