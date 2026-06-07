@@ -168,11 +168,23 @@ async function scanFolder(folderId) {
     return;
   }
 
-  // Load model + background file lists in parallel
-  const [modelFiles, bgFiles] = await Promise.all([
-    modelsFolder ? Drive.listFolder(modelsFolder.id, { imageOnly: true }) : Promise.resolve([]),
-    bgsFolder    ? Drive.listFolder(bgsFolder.id,    { imageOnly: true }) : Promise.resolve([]),
-  ]);
+  // Load model + background files — use subfolders if they exist, otherwise use root images
+  let modelFiles = [];
+  let bgFiles    = [];
+
+  if (modelsFolder) {
+    modelFiles = await Drive.listFolder(modelsFolder.id, { imageOnly: true });
+  }
+  if (bgsFolder) {
+    bgFiles = await Drive.listFolder(bgsFolder.id, { imageOnly: true });
+  }
+
+  // Fallback: load loose image files from the root folder for both pickers
+  if (!modelFiles.length || !bgFiles.length) {
+    const rootImages = await Drive.listFolder(folderId, { imageOnly: true });
+    if (!modelFiles.length) modelFiles = rootImages;
+    if (!bgFiles.length)    bgFiles    = rootImages;
+  }
 
   state.modelFiles = modelFiles;
   state.bgFiles    = bgFiles;
@@ -191,11 +203,7 @@ async function scanFolder(folderId) {
   DOM.cardLooks.classList.remove('hidden');
 
   // Show folder count info
-  const warnings = [];
-  if (!modelsFolder)   warnings.push('No "Models" folder found — model picker will be empty');
-  if (!bgsFolder)      warnings.push('No "Backgrounds" folder found — background picker will be empty');
-  if (warnings.length) showToast(warnings.join(' · '), 'error');
-  else showToast(`Found ${lookFolders.length} look${lookFolders.length !== 1 ? 's' : ''}, ${modelFiles.length} models, ${bgFiles.length} backgrounds`);
+  showToast(`Found ${lookFolders.length} look${lookFolders.length !== 1 ? 's' : ''}, ${modelFiles.length} model photo${modelFiles.length !== 1 ? 's' : ''}, ${bgFiles.length} background${bgFiles.length !== 1 ? 's' : ''}`);
 
   checkFooter();
 }
