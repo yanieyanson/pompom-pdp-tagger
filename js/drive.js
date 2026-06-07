@@ -158,20 +158,8 @@ const Drive = (() => {
     if (_blobCache[file.id]) return _blobCache[file.id];
 
     try {
-      // Prefer the Drive-generated thumbnail (fast, small)
-      if (file.thumbnailLink) {
-        const res = await fetch(file.thumbnailLink, {
-          headers: { Authorization: `Bearer ${_token}` }
-        });
-        if (res.ok) {
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          _blobCache[file.id] = url;
-          return url;
-        }
-      }
-
-      // Fall back to full file download (for small images only)
+      // Drive API alt=media endpoint supports CORS correctly from browser JS.
+      // thumbnailLink uses lh3.googleusercontent.com which blocks Authorization headers.
       const res = await fetch(`${CONFIG.DRIVE_API}/files/${file.id}?alt=media`, {
         headers: { Authorization: `Bearer ${_token}` }
       });
