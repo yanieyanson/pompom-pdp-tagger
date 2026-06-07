@@ -427,12 +427,10 @@ DOM.btnToTagger.addEventListener('click', () => {
   if (state.looks.every(l => l.model)) {
     enableNav(2);
     showScreen(2);
+    initTagger();
   }
 });
 
-// ─── Screen 2 back button ─────────────────────────────────────────────────────
-
-DOM.btnBackSetup.addEventListener('click', () => showScreen(1));
 
 // ─── Nav clicks (for already-enabled steps) ───────────────────────────────────
 

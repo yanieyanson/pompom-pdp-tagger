@@ -696,6 +696,219 @@ body {
 
 .toast.error { background: var(--red); }
 
+/* ─── Screen 2: Tagger ──────────────────────────────────────────────────────── */
+
+.look-tabs-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 32px 16px;
+  border-bottom: 1px solid var(--grey-200);
+  margin-bottom: 24px;
+}
+
+#screen-2 { padding-top: 24px; }
+
+.look-tab {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--grey-200);
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--grey-600);
+  transition: var(--trans);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.look-tab:hover { background: var(--grey-100); color: var(--black); }
+.look-tab.active { background: var(--black); color: var(--white); border-color: var(--black); }
+.look-tab.done { border-color: var(--green); color: var(--green); }
+.look-tab.active.done { background: var(--green); border-color: var(--green); color: var(--white); }
+
+.tab-badge {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.tagger-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Photo panel */
+.photo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.photo-frame {
+  position: relative;
+  background: var(--grey-100);
+  border: 1px solid var(--grey-200);
+  border-radius: var(--card-r);
+  overflow: hidden;
+  aspect-ratio: 3/4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.photo-tagged-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: var(--green);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.photo-empty {
+  text-align: center;
+  color: var(--grey-400);
+  padding: 40px;
+}
+
+.photo-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.photo-counter {
+  font-size: 13px;
+  color: var(--grey-600);
+  min-width: 60px;
+  text-align: center;
+}
+
+.photo-filename {
+  font-size: 12px;
+  color: var(--grey-400);
+  text-align: center;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tag panel */
+.tag-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 72px;
+}
+
+.tag-section { display: flex; flex-direction: column; gap: 8px; }
+
+.tag-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--grey-400);
+}
+
+.tag-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-btn {
+  padding: 8px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--grey-200);
+  background: var(--grey-100);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--black);
+  transition: var(--trans);
+}
+
+.tag-btn:hover { background: var(--grey-200); border-color: var(--grey-400); }
+
+.tag-btn.active {
+  background: var(--black);
+  color: var(--white);
+  border-color: var(--black);
+}
+
+.tag-hint {
+  font-size: 13px;
+  color: var(--grey-600);
+  padding: 10px 14px;
+  background: var(--grey-100);
+  border-radius: 7px;
+  min-height: 40px;
+}
+
+.tag-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Progress bar */
+.look-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-bar-wrap {
+  height: 4px;
+  background: var(--grey-200);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--green);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+
+.progress-label {
+  font-size: 12px;
+  color: var(--grey-600);
+}
+
+/* Keyboard shortcut hint */
+.kbd-hint {
+  font-size: 11px;
+  color: var(--grey-400);
+  line-height: 1.8;
+}
+
+@media (max-width: 700px) {
+  .tagger-layout { grid-template-columns: 1fr; }
+  .tag-panel { position: static; }
+  .look-tabs-bar { padding: 0 16px 16px; }
+}
+
 /* ─── Placeholder screen ────────────────────────────────────────────────────── */
 
 .placeholder-screen {

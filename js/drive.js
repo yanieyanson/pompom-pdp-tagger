@@ -184,6 +184,23 @@ const Drive = (() => {
     return `https://drive.google.com/thumbnail?id=${fileId}&sz=w220`;
   }
 
+  /** Rename a file in Drive */
+  async function renameFile(fileId, newName) {
+    const res = await fetch(`${CONFIG.DRIVE_API}/files/${fileId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Rename failed (${res.status})`);
+    }
+    return res.json();
+  }
+
   /** Download a Drive file as a Blob (for upload to Flora) */
   async function downloadFile(fileId) {
     const res = await fetch(`${CONFIG.DRIVE_API}/files/${fileId}?alt=media`, {
@@ -205,6 +222,7 @@ const Drive = (() => {
     parseFolderId,
     loadThumbnail,
     getThumbnailUrl,
+    renameFile,
     downloadFile,
   };
 })();

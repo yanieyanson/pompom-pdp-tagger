@@ -85,15 +85,71 @@
 
   <!-- ─── Screen 2: Photo Tagger ────────────────────────────────────────────── -->
   <main id="screen-2" class="screen hidden">
-    <div class="screen-intro">
-      <h1>Photo Tagger</h1>
+
+    <!-- Look tabs -->
+    <div class="look-tabs-bar" id="look-tabs"></div>
+
+    <div class="tagger-layout">
+
+      <!-- Left: photo viewer -->
+      <div class="photo-panel">
+        <div class="photo-frame" id="photo-frame">
+          <img id="photo-img" src="" alt="" />
+          <div class="photo-tagged-badge hidden" id="photo-tagged-badge"></div>
+          <div class="photo-empty hidden" id="photo-empty">
+            <p>All photos in this look are tagged ✓</p>
+          </div>
+        </div>
+        <div class="photo-footer">
+          <button class="btn btn-ghost btn-sm" id="btn-prev-photo">←</button>
+          <span class="photo-counter" id="photo-counter"></span>
+          <button class="btn btn-ghost btn-sm" id="btn-next-photo">→</button>
+        </div>
+        <div class="photo-filename" id="photo-filename"></div>
+      </div>
+
+      <!-- Right: tag controls -->
+      <div class="tag-panel">
+        <div class="tag-section">
+          <div class="tag-section-label">Garment Type</div>
+          <div class="tag-buttons" id="type-buttons">
+            <button class="tag-btn" data-type="TOP">Top</button>
+            <button class="tag-btn" data-type="BOTTOM">Bottom</button>
+            <button class="tag-btn" data-type="DRESS">Dress</button>
+            <button class="tag-btn" data-type="SHOE">Footwear</button>
+            <button class="tag-btn" data-type="ACC">Accessory</button>
+          </div>
+        </div>
+
+        <div class="tag-section" id="angle-section">
+          <div class="tag-section-label">Angle</div>
+          <div class="tag-buttons" id="angle-buttons">
+            <button class="tag-btn" data-angle="front">Front</button>
+            <button class="tag-btn" data-angle="back">Back</button>
+            <button class="tag-btn" data-angle="side">Side</button>
+            <button class="tag-btn" data-angle="detail">Detail</button>
+          </div>
+        </div>
+
+        <div class="tag-hint" id="tag-hint">Select a garment type to begin.</div>
+
+        <div class="tag-actions">
+          <button class="btn btn-ghost btn-sm" id="btn-skip-photo">Skip photo</button>
+          <button class="btn btn-ghost btn-sm" id="btn-back-s1">← Back to Setup</button>
+        </div>
+
+        <!-- Look progress summary -->
+        <div class="look-progress" id="look-progress"></div>
+      </div>
+
     </div>
-    <div class="placeholder-screen">
-      <div class="placeholder-icon">🏷️</div>
-      <p>Screen 2 coming next session.</p>
-      <p class="dim" id="s2-summary"></p>
-      <button class="btn btn-ghost" id="btn-back-setup">← Back to Setup</button>
+
+    <!-- Footer: proceed to Run -->
+    <div class="screen-footer hidden" id="footer-s2">
+      <p class="footer-summary" id="tagger-summary"></p>
+      <button class="btn btn-primary btn-lg" id="btn-to-run">Next: Review & Run →</button>
     </div>
+
   </main>
 
   <!-- ─── Screen 3: Review & Run ────────────────────────────────────────────── -->
@@ -133,6 +189,7 @@
 
   <script src="js/config.js"></script>
   <script src="js/drive.js"></script>
+  <script src="js/tagger.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
