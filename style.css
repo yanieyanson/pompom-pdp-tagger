@@ -696,18 +696,14 @@ body {
 
 .toast.error { background: var(--red); }
 
-/* ─── Screen 2: Tagger ──────────────────────────────────────────────────────── */
+/* ─── Screen 2: Assign & Check ──────────────────────────────────────────────── */
 
 .look-tabs-bar {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  padding: 0 32px 16px;
-  border-bottom: 1px solid var(--grey-200);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
-
-#screen-2 { padding-top: 24px; }
 
 .look-tab {
   padding: 6px 14px;
@@ -724,190 +720,128 @@ body {
   gap: 6px;
 }
 
-.look-tab:hover { background: var(--grey-100); color: var(--black); }
+.look-tab:hover  { background: var(--grey-100); color: var(--black); }
 .look-tab.active { background: var(--black); color: var(--white); border-color: var(--black); }
-.look-tab.done { border-color: var(--green); color: var(--green); }
+.look-tab.done   { border-color: var(--green); color: var(--green); }
 .look-tab.active.done { background: var(--green); border-color: var(--green); color: var(--white); }
+.tab-badge { font-size: 11px; opacity: 0.7; }
 
-.tab-badge {
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.tagger-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 24px;
-  align-items: start;
-}
-
-/* Photo panel */
-.photo-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.photo-frame {
-  position: relative;
-  background: var(--grey-100);
+/* Assignment card */
+.assignment-card {
   border: 1px solid var(--grey-200);
   border-radius: var(--card-r);
   overflow: hidden;
-  aspect-ratio: 3/4;
+  margin-bottom: 12px;
+}
+
+.assignment-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--grey-200);
+  background: var(--grey-100);
+}
+
+.assignment-header h2 { font-size: 16px; font-weight: 600; }
+
+/* Slot rows */
+.slot-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--grey-200);
+  transition: background var(--trans);
+}
+
+.slot-row:last-child { border-bottom: none; }
+.slot-row:hover { background: var(--grey-100); }
+.slot-row.slot-missing { background: #fffbf0; }
+
+.slot-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  background: var(--grey-200);
+  overflow: hidden;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 20px;
 }
 
-.photo-frame img {
+.slot-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  display: block;
+  object-fit: cover;
 }
 
-.photo-tagged-badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  background: var(--green);
-  color: white;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.photo-empty {
-  text-align: center;
+.slot-thumb-empty {
+  font-size: 22px;
   color: var(--grey-400);
-  padding: 40px;
 }
 
-.photo-footer {
+.slot-info { flex: 1; min-width: 0; }
+
+.slot-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 6px;
 }
 
-.photo-counter {
-  font-size: 13px;
-  color: var(--grey-600);
-  min-width: 60px;
-  text-align: center;
-}
-
-.photo-filename {
+.slot-filename {
   font-size: 12px;
-  color: var(--grey-400);
-  text-align: center;
-  font-family: 'SF Mono', 'Menlo', monospace;
+  color: var(--grey-600);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: 'SF Mono', 'Menlo', monospace;
 }
 
-/* Tag panel */
-.tag-panel {
+.slot-desc { font-size: 11px; color: var(--grey-400); margin-top: 2px; }
+
+.slot-status { flex-shrink: 0; }
+
+.status-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  position: sticky;
-  top: 72px;
-}
-
-.tag-section { display: flex; flex-direction: column; gap: 8px; }
-
-.tag-section-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--grey-400);
-}
-
-.tag-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag-btn {
-  padding: 8px 14px;
-  border-radius: 7px;
-  border: 1px solid var(--grey-200);
-  background: var(--grey-100);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--black);
-  transition: var(--trans);
-}
-
-.tag-btn:hover { background: var(--grey-200); border-color: var(--grey-400); }
-
-.tag-btn.active {
-  background: var(--black);
-  color: var(--white);
-  border-color: var(--black);
-}
-
-.tag-hint {
-  font-size: 13px;
-  color: var(--grey-600);
-  padding: 10px 14px;
-  background: var(--grey-100);
-  border-radius: 7px;
-  min-height: 40px;
-}
-
-.tag-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Progress bar */
-.look-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.progress-bar-wrap {
-  height: 4px;
-  background: var(--grey-200);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  background: var(--green);
-  border-radius: 2px;
-  transition: width 300ms ease;
-}
-
-.progress-label {
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
+  font-weight: 700;
+}
+
+.status-icon.ok   { background: #e6f7ee; color: var(--green); }
+.status-icon.warn { background: #fff3cd; color: #b45309; }
+
+.source-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.source-badge.auto   { background: #dbeafe; color: #1d4ed8; }
+.source-badge.setup  { background: #dcfce7; color: #15803d; }
+.source-badge.manual { background: #f3e8ff; color: #7c3aed; }
+
+.assignment-summary {
+  padding: 10px 20px;
+  font-size: 13px;
   color: var(--grey-600);
 }
 
-/* Keyboard shortcut hint */
-.kbd-hint {
-  font-size: 11px;
-  color: var(--grey-400);
-  line-height: 1.8;
-}
-
-@media (max-width: 700px) {
-  .tagger-layout { grid-template-columns: 1fr; }
-  .tag-panel { position: static; }
-  .look-tabs-bar { padding: 0 16px 16px; }
-}
+.ok-text   { color: var(--green); font-weight: 500; }
+.warn-text { color: #b45309; font-weight: 500; }
 
 /* ─── Placeholder screen ────────────────────────────────────────────────────── */
 

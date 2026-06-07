@@ -1,337 +1,263 @@
 /**
- * Screen 2 — Photo Tagger
- * Tags garment photos by type + angle, renames files in Google Drive.
+ * Screen 2 — Assign & Check
+ * Auto-detects Flora input slots from filenames, lets user override any slot.
+ * No Drive renaming — assignments live in app state only.
  */
+
+// ─── Flora input slots ────────────────────────────────────────────────────────
+
+const SLOTS = [
+  { id: 'sku-top',     label: 'SKU Top',     desc: 'Garment front view' },
+  { id: 'sku-bottom',  label: 'SKU Bottom',  desc: 'Garment back view'  },
+  { id: 'footwear',    label: 'Footwear',    desc: 'Shoes'              },
+  { id: 'accessories', label: 'Accessory',   desc: 'Side / detail view' },
+  { id: 'model-face',  label: 'Model Face',  desc: 'Character reference'},
+  { id: 'background',  label: 'Background',  desc: 'Backdrop reference' },
+];
+
+// Keyword → slot mapping (mirrors run_pdp.js FILENAME_MAP)
+const DETECT_RULES = [
+  { slot: 'sku-top',     keywords: ['top_front', 'front'] },
+  { slot: 'sku-bottom',  keywords: ['top_back',  'back']  },
+  { slot: 'footwear',    keywords: ['shoe']               },
+  { slot: 'accessories', keywords: ['top_side',  'side', 'acc'] },
+  { slot: 'model-face',  keywords: ['model']              },
+  { slot: 'background',  keywords: ['_bg', 'background']  },
+];
 
 // ─── Tagger state ─────────────────────────────────────────────────────────────
 
 const tagger = {
-  lookIdx:    0,
-  photoIdx:   0,
-  photos:     [],    // all image files for current look
-  type:       null,  // selected garment type (e.g. 'TOP')
-  angle:      null,  // selected angle (e.g. 'front')
-  busy:       false, // renaming in progress
+  lookIdx: 0,
+  // pending picker: { lookIdx, slotId }
+  pendingSlot: null,
 };
 
-// Types that don't need an angle
-const NO_ANGLE_TYPES = new Set(['SHOE']);
+// ─── Auto-detect assignments from filenames ───────────────────────────────────
 
-// Regex to detect already-tagged filenames
-const TAGGED_RE = /^L\d+_(TOP|BOTTOM|DRESS|SHOE|ACC)(_[a-z]+)?\.[a-zA-Z0-9]+$/;
+function detectAssignments(look) {
+  const inputs = look.inputs || {};
 
-// ─── DOM refs ─────────────────────────────────────────────────────────────────
+  // All candidate files: look folder files + model + bg from Screen 1
+  const lookFiles = look.files || [];
+  const allFiles  = [...lookFiles];
 
-function tDOM(id) { return document.getElementById(id); }
+  // Pre-fill model-face and background from Screen 1 selections
+  if (!inputs['model-face'] && look.model) {
+    inputs['model-face'] = { id: look.model.id, name: look.model.name, source: 'setup' };
+  }
+  if (!inputs['background'] && look.bg) {
+    inputs['background'] = { id: look.bg.id, name: look.bg.name, source: 'setup' };
+  }
 
-const T = {
-  tabs:         () => tDOM('look-tabs'),
-  frame:        () => tDOM('photo-frame'),
-  img:          () => tDOM('photo-img'),
-  taggedBadge:  () => tDOM('photo-tagged-badge'),
-  emptyState:   () => tDOM('photo-empty'),
-  counter:      () => tDOM('photo-counter'),
-  filename:     () => tDOM('photo-filename'),
-  btnPrev:      () => tDOM('btn-prev-photo'),
-  btnNext:      () => tDOM('btn-next-photo'),
-  btnSkip:      () => tDOM('btn-skip-photo'),
-  btnBackS1:    () => tDOM('btn-back-s1'),
-  typeButtons:  () => tDOM('type-buttons'),
-  angleSection: () => tDOM('angle-section'),
-  angleButtons: () => tDOM('angle-buttons'),
-  hint:         () => tDOM('tag-hint'),
-  progress:     () => tDOM('look-progress'),
-  footerS2:     () => tDOM('footer-s2'),
-  taggerSummary:() => tDOM('tagger-summary'),
-  btnToRun:     () => tDOM('btn-to-run'),
-};
+  // Auto-detect remaining slots from look folder filenames
+  for (const file of lookFiles) {
+    const lower = file.name.toLowerCase();
+    for (const rule of DETECT_RULES) {
+      if (inputs[rule.slot]) continue; // already assigned
+      if (rule.keywords.some(k => lower.includes(k))) {
+        inputs[rule.slot] = { id: file.id, name: file.name, source: 'auto' };
+        break;
+      }
+    }
+  }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+  look.inputs = inputs;
+  return inputs;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
 
 function initTagger() {
+  // Detect assignments for all looks upfront
+  state.looks.forEach(look => detectAssignments(look));
+
   renderLookTabs();
-  loadLook(tagger.lookIdx);
+  renderAssignmentGrid(tagger.lookIdx);
   bindTaggerEvents();
 }
 
-// ─── Look tabs ────────────────────────────────────────────────────────────────
-
 function renderLookTabs() {
-  const bar = T.tabs();
+  const bar = document.getElementById('look-tabs');
   bar.innerHTML = '';
   state.looks.forEach((look, idx) => {
-    const tagged  = (look.files || []).filter(f => TAGGED_RE.test(f.name)).length;
-    const total   = (look.files || []).length;
-    const done    = total > 0 && tagged === total;
+    const filled  = SLOTS.filter(s => look.inputs?.[s.id]).length;
+    const total   = SLOTS.length;
+    const allDone = filled === total;
     const btn     = document.createElement('button');
-    btn.className = 'look-tab' + (idx === tagger.lookIdx ? ' active' : '') + (done ? ' done' : '');
-    btn.innerHTML = `${look.name} <span class="tab-badge">${tagged}/${total}</span>`;
+    btn.className = 'look-tab' + (idx === tagger.lookIdx ? ' active' : '') + (allDone ? ' done' : '');
+    btn.innerHTML = `${look.name} <span class="tab-badge">${filled}/${total}</span>`;
     btn.addEventListener('click', () => {
       tagger.lookIdx = idx;
-      loadLook(idx);
       renderLookTabs();
+      renderAssignmentGrid(idx);
     });
     bar.appendChild(btn);
   });
 }
 
-// ─── Load a look ──────────────────────────────────────────────────────────────
+function renderAssignmentGrid(idx) {
+  const look    = state.looks[idx];
+  const inputs  = look.inputs || {};
+  const grid    = document.getElementById('assignment-grid');
 
-async function loadLook(idx) {
-  const look = state.looks[idx];
-  tagger.lookIdx = idx;
+  grid.innerHTML = '';
 
-  // Fetch files if not yet loaded
-  if (!look.files) {
-    look.files = await Drive.listFolder(look.folderId, { imageOnly: true });
-  }
+  const card = document.createElement('div');
+  card.className = 'assignment-card';
 
-  tagger.photos = look.files;
-
-  // Start at first untagged photo
-  const firstUntagged = tagger.photos.findIndex(f => !TAGGED_RE.test(f.name));
-  tagger.photoIdx = firstUntagged >= 0 ? firstUntagged : 0;
-
-  resetTagSelection();
-  showPhoto(tagger.photoIdx);
-  updateProgress();
-  checkTaggerFooter();
-}
-
-// ─── Show a photo ─────────────────────────────────────────────────────────────
-
-function showPhoto(idx) {
-  if (!tagger.photos.length) {
-    T.img().src = '';
-    T.emptyState().classList.remove('hidden');
-    T.img().classList.add('hidden');
-    T.counter().textContent = '0 of 0';
-    T.filename().textContent = '';
-    return;
-  }
-
-  T.emptyState().classList.add('hidden');
-  T.img().classList.remove('hidden');
-
-  tagger.photoIdx = Math.max(0, Math.min(idx, tagger.photos.length - 1));
-  const file = tagger.photos[tagger.photoIdx];
-
-  // Use large thumbnail for tagger view
-  T.img().src = `https://drive.google.com/thumbnail?id=${file.id}&sz=w1200`;
-  T.img().alt = file.name;
-  T.counter().textContent = `${tagger.photoIdx + 1} of ${tagger.photos.length}`;
-  T.filename().textContent = file.name;
-
-  // Show tagged badge if already tagged
-  const isTagged = TAGGED_RE.test(file.name);
-  const badge = T.taggedBadge();
-  if (isTagged) {
-    badge.textContent = '✓ Tagged: ' + file.name;
-    badge.classList.remove('hidden');
-  } else {
-    badge.classList.add('hidden');
-  }
-
-  // Pre-fill type/angle if already tagged
-  if (isTagged) {
-    const parts = file.name.split('_');
-    const type  = parts[1] || null;
-    const angle = parts[2] ? parts[2].split('.')[0] : null;
-    setTypeUI(type);
-    setAngleUI(angle);
-  } else {
-    resetTagSelection();
-  }
-
-  updateNavButtons();
-}
-
-function updateNavButtons() {
-  T.btnPrev().disabled = tagger.photoIdx === 0;
-  T.btnNext().disabled = tagger.photoIdx >= tagger.photos.length - 1;
-}
-
-// ─── Tag controls ─────────────────────────────────────────────────────────────
-
-function resetTagSelection() {
-  tagger.type  = null;
-  tagger.angle = null;
-  setTypeUI(null);
-  setAngleUI(null);
-  T.angleSection().classList.add('hidden');
-  T.hint().textContent = 'Select a garment type to begin.';
-}
-
-function setTypeUI(type) {
-  tagger.type = type;
-  T.typeButtons().querySelectorAll('.tag-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.type === type);
-  });
-}
-
-function setAngleUI(angle) {
-  tagger.angle = angle;
-  T.angleButtons().querySelectorAll('.tag-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.angle === angle);
-  });
-}
-
-function onTypeSelect(type) {
-  setTypeUI(type);
-  tagger.angle = null;
-  setAngleUI(null);
-
-  if (NO_ANGLE_TYPES.has(type)) {
-    // No angle needed — apply immediately
-    T.angleSection().classList.add('hidden');
-    T.hint().textContent = `Footwear selected — tagging…`;
-    applyTag();
-  } else {
-    T.angleSection().classList.remove('hidden');
-    T.hint().textContent = `Now select the angle.`;
-  }
-}
-
-function onAngleSelect(angle) {
-  if (!tagger.type) {
-    T.hint().textContent = 'Select a garment type first.';
-    return;
-  }
-  setAngleUI(angle);
-  T.hint().textContent = `${tagger.type} · ${angle} — tagging…`;
-  applyTag();
-}
-
-// ─── Apply tag (rename file in Drive) ────────────────────────────────────────
-
-async function applyTag() {
-  if (tagger.busy) return;
-  const file = tagger.photos[tagger.photoIdx];
-  if (!file) return;
-
-  const look     = state.looks[tagger.lookIdx];
-  const ext      = file.name.split('.').pop().toLowerCase();
-  const newName  = NO_ANGLE_TYPES.has(tagger.type)
-    ? `${look.name}_${tagger.type}.${ext}`
-    : `${look.name}_${tagger.type}_${tagger.angle}.${ext}`;
-
-  tagger.busy = true;
-  T.hint().textContent = `Saving as ${newName}…`;
-
-  try {
-    await Drive.renameFile(file.id, newName);
-    // Update local file name so badge updates instantly
-    file.name = newName;
-    showToast(`✓ Saved as ${newName}`);
-    renderLookTabs();
-    updateProgress();
-    checkTaggerFooter();
-    // Advance to next untagged
-    advanceToNextUntagged();
-  } catch (e) {
-    showToast('Rename failed: ' + e.message, 'error');
-    T.hint().textContent = 'Error — try again.';
-  } finally {
-    tagger.busy = false;
-  }
-}
-
-function advanceToNextUntagged() {
-  const photos = tagger.photos;
-  // Look for next untagged after current position
-  for (let i = tagger.photoIdx + 1; i < photos.length; i++) {
-    if (!TAGGED_RE.test(photos[i].name)) {
-      showPhoto(i);
-      resetTagSelection();
-      return;
-    }
-  }
-  // No more untagged after current — check before current
-  for (let i = 0; i < tagger.photoIdx; i++) {
-    if (!TAGGED_RE.test(photos[i].name)) {
-      showPhoto(i);
-      resetTagSelection();
-      return;
-    }
-  }
-  // All tagged — stay on current, show completion state
-  showPhoto(tagger.photoIdx);
-  T.hint().textContent = 'All photos in this look are tagged ✓';
-}
-
-// ─── Progress ─────────────────────────────────────────────────────────────────
-
-function updateProgress() {
-  const look    = state.looks[tagger.lookIdx];
-  const files   = look.files || [];
-  const tagged  = files.filter(f => TAGGED_RE.test(f.name)).length;
-  const total   = files.length;
-  T.progress().innerHTML = `
-    <div class="progress-bar-wrap">
-      <div class="progress-bar" style="width:${total ? (tagged/total*100) : 0}%"></div>
+  // Look header with file count
+  const fileCount = (look.files || []).length;
+  card.innerHTML = `
+    <div class="assignment-header">
+      <h2>${look.name}</h2>
+      <span class="look-badge">${fileCount} file${fileCount !== 1 ? 's' : ''} in folder</span>
     </div>
-    <span class="progress-label">${tagged} of ${total} tagged in ${look.name}</span>
   `;
+
+  SLOTS.forEach(slot => {
+    const assigned = inputs[slot.id];
+    const row      = document.createElement('div');
+    row.className  = 'slot-row' + (assigned ? '' : ' slot-missing');
+
+    const thumbUrl = assigned
+      ? `https://drive.google.com/thumbnail?id=${assigned.id}&sz=w120`
+      : null;
+
+    const sourceBadge = assigned?.source === 'auto'
+      ? `<span class="source-badge auto">auto</span>`
+      : assigned?.source === 'setup'
+      ? `<span class="source-badge setup">setup</span>`
+      : assigned
+      ? `<span class="source-badge manual">manual</span>`
+      : '';
+
+    row.innerHTML = `
+      <div class="slot-thumb">
+        ${thumbUrl
+          ? `<img src="${thumbUrl}" alt="${slot.label}" onerror="this.parentElement.innerHTML='🖼️'">`
+          : `<div class="slot-thumb-empty">?</div>`}
+      </div>
+      <div class="slot-info">
+        <div class="slot-label">${slot.label} ${sourceBadge}</div>
+        <div class="slot-filename">${assigned ? assigned.name : '— not assigned'}</div>
+        <div class="slot-desc">${slot.desc}</div>
+      </div>
+      <div class="slot-status">
+        ${assigned
+          ? `<span class="status-icon ok">✓</span>`
+          : `<span class="status-icon warn">!</span>`}
+      </div>
+      <button class="btn btn-outline btn-sm slot-change-btn"
+              data-look="${idx}" data-slot="${slot.id}">
+        Change
+      </button>
+    `;
+
+    card.appendChild(row);
+  });
+
+  grid.appendChild(card);
+
+  // Summary line
+  const filled  = SLOTS.filter(s => inputs[s.id]).length;
+  const missing = SLOTS.filter(s => !inputs[s.id]).map(s => s.label);
+  const summary = document.createElement('div');
+  summary.className = 'assignment-summary';
+  if (missing.length) {
+    summary.innerHTML = `<span class="warn-text">Missing: ${missing.join(', ')}</span> — you can still run without them.`;
+  } else {
+    summary.innerHTML = `<span class="ok-text">✓ All slots assigned for ${look.name}</span>`;
+  }
+  grid.appendChild(summary);
+
+  checkFooterS2();
 }
 
-function checkTaggerFooter() {
-  const anyTagged = state.looks.some(l =>
-    (l.files || []).some(f => TAGGED_RE.test(f.name))
+function checkFooterS2() {
+  // Show footer once every look has at least sku-top assigned
+  const ready = state.looks.every(l => l.inputs?.['sku-top']);
+  document.getElementById('footer-s2').classList.toggle('hidden', !ready);
+}
+
+// ─── Slot change picker ───────────────────────────────────────────────────────
+
+function openSlotPicker(lookIdx, slotId) {
+  tagger.pendingSlot = { lookIdx, slotId };
+
+  const slot  = SLOTS.find(s => s.id === slotId);
+  const look  = state.looks[lookIdx];
+
+  // Build combined file list: look folder files + root model/bg files
+  const lookFiles = look.files || [];
+  const rootFiles = [...state.modelFiles, ...state.bgFiles].filter(
+    f => !lookFiles.some(lf => lf.id === f.id)
   );
-  const footer = T.footerS2();
-  footer.classList.toggle('hidden', !anyTagged);
-  if (anyTagged) {
-    const totalTagged = state.looks.reduce((sum, l) =>
-      sum + (l.files || []).filter(f => TAGGED_RE.test(f.name)).length, 0);
-    T.taggerSummary().textContent = `${totalTagged} photo${totalTagged !== 1 ? 's' : ''} tagged across all looks.`;
+  const allFiles = [...lookFiles, ...rootFiles];
+
+  // Reuse existing modal from Screen 1
+  const current = look.inputs?.[slotId] || null;
+
+  document.getElementById('modal-title').textContent = `Change ${slot.label} — ${look.name}`;
+  document.getElementById('modal-grid').innerHTML    = '';
+  document.getElementById('modal-empty').classList.add('hidden');
+  document.getElementById('modal-loading').classList.add('hidden');
+  document.getElementById('modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  const grid = document.getElementById('modal-grid');
+  allFiles.forEach(file => {
+    const isSelected = current && current.id === file.id;
+    const thumbUrl   = Drive.loadThumbnail(file);
+    const card       = document.createElement('div');
+    card.className   = 'asset-card' + (isSelected ? ' selected' : '');
+    card.dataset.fileId = file.id;
+    card.innerHTML   = `
+      <div class="asset-thumb-wrap">
+        <img src="${thumbUrl}" alt="${file.name}" onerror="this.parentElement.innerHTML='🖼️'">
+      </div>
+      <div class="asset-name" title="${file.name}">${file.name}</div>
+    `;
+    card.addEventListener('click', () => assignSlot(file));
+    grid.appendChild(card);
+  });
+
+  if (!allFiles.length) {
+    document.getElementById('modal-empty').classList.remove('hidden');
   }
+}
+
+function assignSlot(file) {
+  const { lookIdx, slotId } = tagger.pendingSlot;
+  const look = state.looks[lookIdx];
+  look.inputs = look.inputs || {};
+  look.inputs[slotId] = { id: file.id, name: file.name, source: 'manual' };
+
+  // Close modal
+  document.getElementById('modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  tagger.pendingSlot = null;
+
+  renderLookTabs();
+  renderAssignmentGrid(lookIdx);
+  showToast(`✓ ${SLOTS.find(s => s.id === slotId)?.label} updated`);
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 function bindTaggerEvents() {
-  T.btnPrev().addEventListener('click', () => {
-    showPhoto(tagger.photoIdx - 1);
-    resetTagSelection();
-  });
-  T.btnNext().addEventListener('click', () => {
-    showPhoto(tagger.photoIdx + 1);
-    resetTagSelection();
-  });
-  T.btnSkip().addEventListener('click', () => {
-    showPhoto(tagger.photoIdx + 1);
-    resetTagSelection();
-  });
-  T.btnBackS1().addEventListener('click', () => {
-    if (typeof showScreen === 'function') showScreen(1);
-  });
-  T.typeButtons().addEventListener('click', e => {
-    const btn = e.target.closest('.tag-btn[data-type]');
-    if (btn && !tagger.busy) onTypeSelect(btn.dataset.type);
-  });
-  T.angleButtons().addEventListener('click', e => {
-    const btn = e.target.closest('.tag-btn[data-angle]');
-    if (btn && !tagger.busy) onAngleSelect(btn.dataset.angle);
-  });
-  T.btnToRun().addEventListener('click', () => {
-    if (typeof showScreen === 'function') {
-      enableNav(3);
-      showScreen(3);
-    }
+  // Slot change buttons (delegated)
+  document.getElementById('assignment-grid').addEventListener('click', e => {
+    const btn = e.target.closest('.slot-change-btn');
+    if (btn) openSlotPicker(parseInt(btn.dataset.look), btn.dataset.slot);
   });
 
-  // Keyboard shortcuts: 1-5 for type, F/B/S/D for angle
-  document.addEventListener('keydown', handleTaggerKey);
-}
+  document.getElementById('btn-back-s1').addEventListener('click', () => showScreen(1));
+  document.getElementById('btn-to-run').addEventListener('click', () => {
+    enableNav(3);
+    showScreen(3);
+    if (typeof initRunScreen === 'function') initRunScreen();
+  });
 
-function handleTaggerKey(e) {
-  if (tDOM('screen-2').classList.contains('hidden')) return;
-  if (tagger.busy) return;
-  const map = { '1':'TOP','2':'BOTTOM','3':'DRESS','4':'SHOE','5':'ACC' };
-  const angleMap = { 'f':'front','b':'back','s':'side','d':'detail' };
-  const key = e.key.toLowerCase();
-  if (map[e.key])         onTypeSelect(map[e.key]);
-  else if (angleMap[key]) onAngleSelect(angleMap[key]);
-  else if (key === 'arrowleft')  { showPhoto(tagger.photoIdx - 1); resetTagSelection(); }
-  else if (key === 'arrowright') { showPhoto(tagger.photoIdx + 1); resetTagSelection(); }
+  // Modal close reuses Screen 1 handlers — already bound in app.js
 }
