@@ -34,7 +34,7 @@ const CONFIG = {
   BACKGROUNDS_FOLDER: 'Backgrounds',
 
   // Regex to detect "Look N" subfolders (case-insensitive)
-  LOOK_FOLDER_RE: /^look\s*\d+$/i,
+  LOOK_FOLDER_RE: /^(look\s*\d+|l\d+)$/i,
 
   // Input slot order for the Flora technique
   INPUT_ORDER: ['sku-top', 'sku-bottom', 'footwear', 'accessories', 'model-face', 'background'],
