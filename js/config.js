@@ -10,7 +10,7 @@
 
 const CONFIG = {
   // Replace with your Web Application OAuth Client ID:
-  GOOGLE_CLIENT_ID: '129874361472-vpp1f957o7qa532qig386sm4hnjvepn8.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: '129874361472-srholbfj5nmqnv51rm9regb8jpokvgis.apps.googleusercontent.com',
 
   // Google Drive OAuth scope
   DRIVE_SCOPE: 'https://www.googleapis.com/auth/drive',
