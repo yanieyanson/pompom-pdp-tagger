@@ -350,6 +350,32 @@ body {
   justify-content: space-between;
 }
 
+.look-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.look-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--grey-200);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.look-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .look-name {
   font-size: 14px;
   font-weight: 600;

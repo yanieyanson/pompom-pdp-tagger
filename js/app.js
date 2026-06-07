@@ -227,7 +227,12 @@ function createLookCard(look, idx) {
 
   card.innerHTML = `
     <div class="look-card-header">
-      <span class="look-name">${look.name}</span>
+      <div class="look-preview-wrap">
+        <div class="look-preview" id="preview-${idx}">
+          <div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>
+        </div>
+        <span class="look-name">${look.name}</span>
+      </div>
       <span class="look-badge" id="badge-${idx}">…</span>
     </div>
     <div class="look-pickers">
@@ -284,13 +289,27 @@ function refreshLookCard(idx) {
 
 async function loadLookFileCount(idx) {
   const look = state.looks[idx];
-  const badge = $(`badge-${idx}`);
+  const badge   = $(`badge-${idx}`);
+  const preview = $(`preview-${idx}`);
   try {
     const files = await Drive.listFolder(look.folderId, { imageOnly: true });
     look.files = files;
     if (badge) badge.textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+
+    // Load first image as look preview thumbnail
+    if (preview && files.length) {
+      const url = await Drive.loadThumbnail(files[0]);
+      if (url) {
+        preview.innerHTML = `<img src="${url}" alt="${look.name}">`;
+      } else {
+        preview.innerHTML = '🧥';
+      }
+    } else if (preview) {
+      preview.innerHTML = '🧥';
+    }
   } catch {
-    if (badge) badge.textContent = '?';
+    if (badge)   badge.textContent = '?';
+    if (preview) preview.innerHTML = '🧥';
   }
 }
 
