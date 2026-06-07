@@ -187,11 +187,12 @@ async function scanFolder(folderId) {
   state.looks = lookFolders.map(f => ({
     name:     f.name,
     folderId: f.id,
-    files:    null,   // loaded lazily
+    files:    null,
     model:    null,
     bg:       null,
   }));
 
+  restoreLooksState();
   renderLooksGrid();
 
   DOM.cardLooks.classList.remove('hidden');
@@ -382,6 +383,7 @@ function selectAsset(file) {
   closePicker();
   refreshLookCard(lookIdx);
   checkFooter();
+  saveLooksState();
 }
 
 function closePicker() {
@@ -439,31 +441,7 @@ function enableNav(n) {
   });
 }
 
-// ─── Persist setup to sessionStorage ──────────────────────────────────────────
-
-function saveSetup() {
-  try {
-    sessionStorage.setItem('pdp_setup', JSON.stringify({
-      folderId:    state.folderId,
-      folderName:  state.folderName,
-      looks:       state.looks.map(l => ({
-        name:      l.name,
-        folderId:  l.folderId,
-        model:     l.model,
-        bg:        l.bg,
-      })),
-    }));
-  } catch {}
-}
-
-// Auto-save when looks change
-const _origSelectAsset = selectAsset;
-// (already called via closePicker flow)
-
-// Save on page unload
-window.addEventListener('beforeunload', saveSetup);
-
-// ─── Persist folder ID ────────────────────────────────────────────────────────
+// ─── Persist state to localStorage ───────────────────────────────────────────
 
 function saveLastFolder(folderId) {
   try { localStorage.setItem('pdp_last_folder', folderId); } catch {}
@@ -471,6 +449,40 @@ function saveLastFolder(folderId) {
 
 function getLastFolder() {
   try { return localStorage.getItem('pdp_last_folder'); } catch { return null; }
+}
+
+// Save model/bg (Screen 1) and slot assignments (Screen 2) keyed by folder ID
+function saveLooksState() {
+  if (!state.folderId) return;
+  try {
+    const payload = state.looks.map(l => ({
+      name:   l.name,
+      model:  l.model  ? { id: l.model.id,  name: l.model.name  } : null,
+      bg:     l.bg     ? { id: l.bg.id,     name: l.bg.name     } : null,
+      inputs: l.inputs
+        ? Object.fromEntries(
+            Object.entries(l.inputs).map(([k, v]) => [k, { id: v.id, name: v.name, source: v.source }])
+          )
+        : null,
+    }));
+    localStorage.setItem('pdp_looks_' + state.folderId, JSON.stringify(payload));
+  } catch {}
+}
+
+// Restore saved assignments after a folder scan rebuilds state.looks
+function restoreLooksState() {
+  if (!state.folderId) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem('pdp_looks_' + state.folderId) || 'null');
+    if (!saved) return;
+    state.looks.forEach(look => {
+      const s = saved.find(l => l.name === look.name);
+      if (!s) return;
+      if (s.model) look.model = { ...s.model, blobUrl: Drive.getThumbnailUrl(s.model.id) };
+      if (s.bg)    look.bg    = { ...s.bg,    blobUrl: Drive.getThumbnailUrl(s.bg.id)    };
+      if (s.inputs) look.inputs = s.inputs;
+    });
+  } catch {}
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

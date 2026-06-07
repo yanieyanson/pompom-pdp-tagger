@@ -241,6 +241,7 @@ function assignSlot(file) {
   renderLookTabs();
   renderAssignmentGrid(lookIdx);
   showToast(`✓ ${SLOTS.find(s => s.id === slotId)?.label} updated`);
+  if (typeof saveLooksState === 'function') saveLooksState();
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────
