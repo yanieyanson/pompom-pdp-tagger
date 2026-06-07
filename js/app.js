@@ -378,12 +378,11 @@ function renderPickerGrid(files, current) {
 async function loadCardThumbnail(card, file) {
   const wrap = card.querySelector('.asset-thumb-wrap');
   const url = await Drive.loadThumbnail(file);
+  wrap.innerHTML = '';
   if (url) {
     const img = document.createElement('img');
     img.src = url;
     img.alt = file.name;
-    img.onload = () => wrap.innerHTML = '';
-    img.onerror = () => { wrap.innerHTML = '🖼️'; };
     wrap.appendChild(img);
   } else {
     wrap.innerHTML = '🖼️';
