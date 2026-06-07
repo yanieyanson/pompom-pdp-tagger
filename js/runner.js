@@ -1,0 +1,333 @@
+/**
+ * Screen 3 — Review & Run
+ * Uploads assets to Flora, runs technique, saves outputs to Google Drive.
+ */
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ─── Flora API calls (via Vercel proxy) ───────────────────────────────────────
+
+async function floraReserve(filename, contentType) {
+  const res = await fetch(`${CONFIG.API_BASE}/flora?action=reserve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, contentType })
+  });
+  if (!res.ok) throw new Error(`Flora reserve failed: ${res.status}`);
+  return res.json();
+}
+
+async function floraComplete(assetId) {
+  const res = await fetch(`${CONFIG.API_BASE}/flora?action=complete&assetId=${assetId}`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error(`Flora complete failed: ${res.status}`);
+  return res.json();
+}
+
+async function floraPollAsset(assetId) {
+  for (let i = 0; i < 30; i++) {
+    const res  = await fetch(`${CONFIG.API_BASE}/flora?action=asset&assetId=${assetId}`);
+    const data = await res.json();
+    if (data.status === 'ready')  return data.url;
+    if (data.status === 'failed') throw new Error('Asset processing failed');
+    await sleep(3000);
+  }
+  throw new Error('Asset timed out');
+}
+
+async function floraRun(inputs) {
+  const res = await fetch(`${CONFIG.API_BASE}/flora?action=run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs, project_id: CONFIG.FLORA_PROJECT })
+  });
+  if (!res.ok) throw new Error(`Flora run failed: ${res.status}`);
+  return res.json();
+}
+
+async function floraPollRun(runId, onProgress) {
+  const start = Date.now();
+  while (Date.now() - start < 600000) {
+    const res  = await fetch(`${CONFIG.API_BASE}/flora?action=run-status&runId=${runId}`);
+    const data = await res.json();
+    if (data.status === 'completed') return data;
+    if (data.status === 'failed')    throw new Error(data.error_message || 'Run failed');
+    onProgress(data.progress || 0, data.status);
+    await sleep(10000);
+  }
+  throw new Error('Run timed out');
+}
+
+// ─── Upload a Drive file to Flora ─────────────────────────────────────────────
+
+async function uploadDriveFileToFlora(fileId, filename) {
+  const ext         = filename.split('.').pop().toLowerCase();
+  const mimeTypes   = { heic:'image/heic', heif:'image/heif', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp' };
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  // 1. Download from Drive
+  const blob = await Drive.downloadFile(fileId);
+
+  // 2. Reserve Flora upload slot
+  const { asset_id, upload } = await floraReserve(filename, contentType);
+
+  // 3. Upload directly to signed URL (S3 presigned POST)
+  const form = new FormData();
+  for (const [k, v] of Object.entries(upload.form_fields || {})) form.append(k, v);
+  form.append(upload.file_field || 'file', blob, filename);
+  const uploadRes = await fetch(upload.url, { method: 'POST', body: form });
+  if (!uploadRes.ok && uploadRes.status !== 204) {
+    throw new Error(`S3 upload failed: ${uploadRes.status}`);
+  }
+
+  // 4. Complete & wait for asset to be ready
+  await floraComplete(asset_id);
+  return floraPollAsset(asset_id);
+}
+
+// ─── Drive output helpers ─────────────────────────────────────────────────────
+
+async function getOrCreateOutputFolder() {
+  // Look for existing "PDP Outputs" folder in root Drive folder
+  const q = `'${state.folderId}' in parents and name = 'PDP Outputs' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const res = await fetch(`${CONFIG.DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${Drive.getToken()}` }
+  });
+  const { files } = await res.json();
+  if (files && files.length) return files[0].id;
+
+  // Create it
+  const create = await fetch(`${CONFIG.DRIVE_API}/files`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${Drive.getToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'PDP Outputs', mimeType: 'application/vnd.google-apps.folder', parents: [state.folderId] })
+  });
+  return (await create.json()).id;
+}
+
+async function uploadOutputToDrive(url, filename, folderId) {
+  // Download output from Flora CDN
+  const res  = await fetch(url);
+  const blob = await res.blob();
+
+  // Upload to Drive via multipart
+  const meta  = JSON.stringify({ name: filename, parents: [folderId] });
+  const form  = new FormData();
+  form.append('metadata', new Blob([meta], { type: 'application/json' }));
+  form.append('file', blob, filename);
+
+  const upload = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${Drive.getToken()}` },
+    body: form
+  });
+  const data = await upload.json();
+
+  // Make shareable
+  await fetch(`${CONFIG.DRIVE_API}/files/${data.id}/permissions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${Drive.getToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  });
+
+  return `https://drive.google.com/file/d/${data.id}/view`;
+}
+
+// ─── Build Flora inputs with fallbacks ────────────────────────────────────────
+
+function buildInputsWithFallbacks(inputs) {
+  const resolved = { ...inputs };
+  // Fallbacks for missing slots
+  if (!resolved['sku-bottom']  && resolved['sku-top'])    resolved['sku-bottom']  = resolved['sku-top'];
+  if (!resolved['accessories'] && resolved['sku-top'])    resolved['accessories'] = resolved['sku-top'];
+  return resolved;
+}
+
+// ─── Run a single look ────────────────────────────────────────────────────────
+
+async function runLook(lookIdx, updateStatus) {
+  const look     = state.looks[lookIdx];
+  const inputs   = buildInputsWithFallbacks(look.inputs || {});
+  const required = ['sku-top', 'model-face', 'background'];
+
+  for (const r of required) {
+    if (!inputs[r]) throw new Error(`Missing required slot: ${r}`);
+  }
+
+  const SLOT_ORDER = ['sku-top', 'sku-bottom', 'footwear', 'accessories', 'model-face', 'background'];
+  const assetUrls  = {};
+
+  // Upload each assigned slot to Flora
+  const slots = SLOT_ORDER.filter(s => inputs[s]);
+  for (let i = 0; i < slots.length; i++) {
+    const slotId = slots[i];
+    const file   = inputs[slotId];
+    updateStatus(`Uploading ${slotId} (${i + 1}/${slots.length})…`);
+    assetUrls[slotId] = await uploadDriveFileToFlora(file.id, file.name);
+  }
+
+  // Build technique inputs array
+  const techniqueInputs = SLOT_ORDER
+    .filter(s => assetUrls[s])
+    .map(s => ({ id: s, type: 'imageUrl', value: assetUrls[s] }));
+
+  // Add frontal prompt
+  techniqueInputs.push({
+    id: 'straight-on-full-body-frontal-prompt',
+    type: 'text',
+    value: CONFIG.FRONTAL_PROMPT
+  });
+
+  // Fire technique
+  updateStatus('Starting Flora technique…');
+  const { run_id } = await floraRun(techniqueInputs);
+
+  // Poll
+  updateStatus('Running…');
+  const completed = await floraPollRun(run_id, (progress, status) => {
+    updateStatus(`Flora running… ${Math.round(progress * 100)}%`);
+  });
+
+  // Save outputs to Drive
+  updateStatus('Saving outputs to Drive…');
+  const outputFolder = await getOrCreateOutputFolder();
+  const links = {};
+
+  for (const output of completed.outputs || []) {
+    const filename = output.output_id === 'model-frontal-photo'
+      ? `${look.name}_frontal_v1.jpg`
+      : `${look.name}_side_v1.jpg`;
+    const link = await uploadOutputToDrive(output.url, filename, outputFolder);
+    links[output.output_id] = link;
+  }
+
+  return { runId: run_id, links };
+}
+
+// ─── Screen 3 init ────────────────────────────────────────────────────────────
+
+function initRunScreen() {
+  renderRunReview();
+  document.getElementById('btn-run-all').addEventListener('click', runAll);
+  document.getElementById('btn-back-s2').addEventListener('click', () => showScreen(2));
+}
+
+function renderRunReview() {
+  const container = document.getElementById('run-review');
+  const SLOT_LABELS = {
+    'sku-top':     'Top',
+    'sku-bottom':  'Bottom',
+    'footwear':    'Shoe',
+    'accessories': 'Acc',
+    'model-face':  'Model',
+    'background':  'BG',
+  };
+  const SLOTS = Object.keys(SLOT_LABELS);
+
+  let html = `<div class="review-table">
+    <div class="review-header">
+      <div class="review-cell">Look</div>
+      ${SLOTS.map(s => `<div class="review-cell">${SLOT_LABELS[s]}</div>`).join('')}
+      <div class="review-cell">Status</div>
+    </div>`;
+
+  state.looks.forEach((look, idx) => {
+    const inputs   = buildInputsWithFallbacks(look.inputs || {});
+    const allReady = ['sku-top','model-face','background'].every(s => inputs[s]);
+    html += `<div class="review-row" id="review-row-${idx}">
+      <div class="review-cell review-look-name">${look.name}</div>
+      ${SLOTS.map(s => {
+        const f = inputs[s];
+        return `<div class="review-cell">
+          ${f ? `<img class="review-thumb" src="${Drive.getThumbnailUrl(f.id)}" title="${f.name}" onerror="this.style.opacity=0.2">` : '<span class="review-missing">—</span>'}
+        </div>`;
+      }).join('')}
+      <div class="review-cell">
+        <span class="run-badge ${allReady ? 'ready' : 'warn'}" id="run-badge-${idx}">
+          ${allReady ? 'Ready' : 'Missing slots'}
+        </span>
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Cost estimate
+  const readyCount = state.looks.filter((l, idx) => {
+    const inputs = buildInputsWithFallbacks(l.inputs || {});
+    return ['sku-top','model-face','background'].every(s => inputs[s]);
+  }).length;
+  document.getElementById('run-cost-est').textContent =
+    `${readyCount} look${readyCount !== 1 ? 's' : ''} ready · ~$${(readyCount * CONFIG.COST_PER_RUN).toFixed(2)} estimated`;
+}
+
+async function runAll() {
+  const btn      = document.getElementById('btn-run-all');
+  const controls = document.getElementById('run-controls');
+  const list     = document.getElementById('run-status-list');
+
+  btn.disabled   = true;
+  btn.textContent = 'Running…';
+  list.classList.remove('hidden');
+  list.innerHTML = '';
+
+  // Build status rows
+  state.looks.forEach((look, idx) => {
+    const row = document.createElement('div');
+    row.className = 'run-status-row';
+    row.id = `status-row-${idx}`;
+    row.innerHTML = `
+      <div class="run-status-look">${look.name}</div>
+      <div class="run-status-msg" id="status-msg-${idx}">Pending</div>
+      <div class="run-status-icon" id="status-icon-${idx}">·</div>
+      <div class="run-status-links" id="status-links-${idx}"></div>
+    `;
+    list.appendChild(row);
+  });
+
+  for (let idx = 0; idx < state.looks.length; idx++) {
+    const inputs = buildInputsWithFallbacks(state.looks[idx].inputs || {});
+    if (!['sku-top','model-face','background'].every(s => inputs[s])) {
+      setStatus(idx, 'Skipped — missing required slots', 'skip');
+      continue;
+    }
+
+    setStatus(idx, 'Starting…', 'running');
+    try {
+      const { runId, links } = await runLook(idx, msg => setStatus(idx, msg, 'running'));
+      setStatus(idx, '✓ Done', 'done');
+      showOutputLinks(idx, links);
+    } catch (e) {
+      setStatus(idx, '✗ ' + e.message, 'failed');
+    }
+  }
+
+  btn.textContent = 'Run Complete';
+}
+
+function setStatus(idx, msg, state) {
+  const msgEl  = document.getElementById(`status-msg-${idx}`);
+  const iconEl = document.getElementById(`status-icon-${idx}`);
+  const row    = document.getElementById(`status-row-${idx}`);
+  if (msgEl) msgEl.textContent = msg;
+  if (row) row.className = `run-status-row ${state}`;
+  if (iconEl) {
+    iconEl.innerHTML = state === 'running' ? '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div>'
+      : state === 'done'    ? '✓'
+      : state === 'failed'  ? '✗'
+      : state === 'skip'    ? '–'
+      : '·';
+  }
+}
+
+function showOutputLinks(idx, links) {
+  const el = document.getElementById(`status-links-${idx}`);
+  if (!el) return;
+  const linksHtml = Object.entries(links).map(([key, url]) => {
+    const label = key === 'model-frontal-photo' ? 'Frontal' : 'Side';
+    return `<a href="${url}" target="_blank" class="output-link">${label} →</a>`;
+  }).join('');
+  el.innerHTML = linksHtml;
+}

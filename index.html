@@ -107,13 +107,32 @@
 
   <!-- ─── Screen 3: Review & Run ────────────────────────────────────────────── -->
   <main id="screen-3" class="screen hidden">
+
     <div class="screen-intro">
       <h1>Review &amp; Run</h1>
+      <p>Check assignments below, then run Flora for each look.</p>
     </div>
-    <div class="placeholder-screen">
-      <div class="placeholder-icon">🚀</div>
-      <p>Screen 3 coming next session.</p>
+
+    <!-- Review table -->
+    <div id="run-review"></div>
+
+    <!-- Run controls -->
+    <div class="run-controls" id="run-controls">
+      <div class="run-meta">
+        <span id="run-cost-est"></span>
+        <span class="dim">· Runs sequentially · ~4–5 min per look · Tab must stay open</span>
+      </div>
+      <button class="btn btn-primary btn-lg" id="btn-run-all">Run All Looks</button>
     </div>
+
+    <!-- Per-look status -->
+    <div id="run-status-list" class="run-status-list hidden"></div>
+
+    <!-- Back -->
+    <div style="margin-top:24px;">
+      <button class="btn btn-ghost" id="btn-back-s2">← Back to Assign</button>
+    </div>
+
   </main>
 
   <!-- ─── Asset Picker Modal ────────────────────────────────────────────────── -->
@@ -143,6 +162,7 @@
   <script src="js/config.js"></script>
   <script src="js/drive.js"></script>
   <script src="js/tagger.js"></script>
+  <script src="js/runner.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
