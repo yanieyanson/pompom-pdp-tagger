@@ -296,14 +296,14 @@ async function loadLookFileCount(idx) {
     look.files = files;
     if (badge) badge.textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
 
-    // Load first image as look preview thumbnail
+    // Show 2 preview images — prefer garment shots, skip shoes/bg
     if (preview && files.length) {
-      const url = await Drive.loadThumbnail(files[0]);
-      if (url) {
-        preview.innerHTML = `<img src="${url}" alt="${look.name}">`;
-      } else {
-        preview.innerHTML = '🧥';
-      }
+      const isShoeOrBg = f => /shoe|bg|background/i.test(f.name);
+      const garments = files.filter(f => !isShoeOrBg(f));
+      const picks = (garments.length ? garments : files).slice(0, 2);
+      preview.innerHTML = picks.map(f =>
+        `<img src="${Drive.loadThumbnail(f)}" alt="${f.name}" onerror="this.style.display='none'">`
+      ).join('');
     } else if (preview) {
       preview.innerHTML = '🧥';
     }
@@ -345,62 +345,42 @@ function openPicker(lookIdx, type) {
 
 function renderPickerGrid(files, current) {
   DOM.modalGrid.innerHTML = '';
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      const card = entry.target;
-      const file = files.find(f => f.id === card.dataset.fileId);
-      if (file && !card.dataset.loaded) {
-        card.dataset.loaded = '1';
-        observer.unobserve(card);
-        loadCardThumbnail(card, file);
-      }
-    });
-  }, { rootMargin: '100px' });
-
   files.forEach(file => {
     const isSelected = current && current.id === file.id;
+    const thumbUrl = Drive.loadThumbnail(file);
     const card = document.createElement('div');
     card.className = 'asset-card' + (isSelected ? ' selected' : '');
     card.dataset.fileId = file.id;
     card.innerHTML = `
       <div class="asset-thumb-wrap">
-        <div class="thumb-loading"><div class="spinner"></div></div>
+        <img src="${thumbUrl}" alt="${file.name}" onerror="this.parentElement.innerHTML='🖼️'">
       </div>
       <div class="asset-name" title="${file.name}">${file.name}</div>
     `;
     card.addEventListener('click', () => selectAsset(file));
     DOM.modalGrid.appendChild(card);
-    observer.observe(card);
   });
 }
 
-async function loadCardThumbnail(card, file) {
+function loadCardThumbnail(card, file) {
   const wrap = card.querySelector('.asset-thumb-wrap');
-  const url = await Drive.loadThumbnail(file);
+  const url = Drive.loadThumbnail(file);
   wrap.innerHTML = '';
-  if (url) {
-    const img = document.createElement('img');
-    img.src = url;
-    img.alt = file.name;
-    wrap.appendChild(img);
-  } else {
-    wrap.innerHTML = '🖼️';
-  }
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = file.name;
+  img.onerror = () => { wrap.innerHTML = '🖼️'; };
+  wrap.appendChild(img);
 }
 
-async function selectAsset(file) {
+function selectAsset(file) {
   const { lookIdx, type } = state.picker;
 
-  // Mark selected in modal
   DOM.modalGrid.querySelectorAll('.asset-card').forEach(c => {
     c.classList.toggle('selected', c.dataset.fileId === file.id);
   });
 
-  // Fetch blob URL for the picker preview (if not cached already)
-  const blobUrl = await Drive.loadThumbnail(file);
-
-  const entry = { id: file.id, name: file.name, blobUrl };
+  const entry = { id: file.id, name: file.name, blobUrl: Drive.loadThumbnail(file) };
 
   if (type === 'model') state.looks[lookIdx].model = entry;
   else                  state.looks[lookIdx].bg    = entry;

@@ -154,23 +154,19 @@ const Drive = (() => {
    * Uses Drive's thumbnailLink first (small preview), falls back to full file.
    * Results are cached.
    */
-  async function loadThumbnail(file) {
-    if (_blobCache[file.id]) return _blobCache[file.id];
+  /**
+   * Returns a thumbnail URL for a Drive file.
+   * Uses drive.google.com/thumbnail which:
+   * - Returns JPEG for all formats including HEIC (works in all browsers)
+   * - No CORS issue for <img> tags (uses browser Google session)
+   * - No download needed — fast
+   */
+  function loadThumbnail(file) {
+    return `https://drive.google.com/thumbnail?id=${file.id}&sz=w220`;
+  }
 
-    try {
-      // Drive API alt=media endpoint supports CORS correctly from browser JS.
-      // thumbnailLink uses lh3.googleusercontent.com which blocks Authorization headers.
-      const res = await fetch(`${CONFIG.DRIVE_API}/files/${file.id}?alt=media`, {
-        headers: { Authorization: `Bearer ${_token}` }
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      _blobCache[file.id] = url;
-      return url;
-    } catch (e) {
-      return null;
-    }
+  function getThumbnailUrl(fileId) {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w220`;
   }
 
   /** Download a Drive file as a Blob (for upload to Flora) */
@@ -192,6 +188,7 @@ const Drive = (() => {
     findSubfoldersByPattern,
     parseFolderId,
     loadThumbnail,
+    getThumbnailUrl,
     downloadFile,
   };
 })();
