@@ -31,30 +31,45 @@ const Drive = (() => {
 
   // ── OAuth token request ───────────────────────────────────────────────────
 
+  function _initTokenClient() {
+    if (_tokenClient) return;
+    _tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CONFIG.GOOGLE_CLIENT_ID,
+      scope: CONFIG.DRIVE_SCOPE,
+      callback: _handleTokenResponse,
+      error_callback: (err) => {
+        if (_pendingReject) _pendingReject(new Error(err.type || 'OAuth error'));
+        _pendingResolve = null;
+        _pendingReject  = null;
+      }
+    });
+  }
+
   async function connect() {
     await waitForGIS();
-
     if (isConnected()) return _token;
-
     return new Promise((resolve, reject) => {
       _pendingResolve = resolve;
       _pendingReject  = reject;
+      _initTokenClient();
+      _tokenClient.requestAccessToken({ prompt: 'select_account' });
+    });
+  }
 
-      if (!_tokenClient) {
-        _tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: CONFIG.GOOGLE_CLIENT_ID,
-          scope: CONFIG.DRIVE_SCOPE,
-          callback: _handleTokenResponse,
-          error_callback: (err) => {
-            if (_pendingReject) _pendingReject(new Error(err.type || 'OAuth error'));
-            _pendingResolve = null;
-            _pendingReject  = null;
-          }
-        });
-      }
-
-      // prompt: '' reuses existing session without showing a popup if already authorized
-      _tokenClient.requestAccessToken({ prompt: isConnected() ? '' : 'select_account' });
+  // Silent connect — no popup, resolves null if user not already authorized
+  async function connectSilent() {
+    await waitForGIS();
+    if (isConnected()) return _token;
+    return new Promise((resolve) => {
+      _pendingResolve = resolve;
+      _pendingReject  = () => resolve(null);
+      _initTokenClient();
+      // prompt: '' skips account picker + consent if already granted
+      _tokenClient.requestAccessToken({ prompt: '' });
+      // Timeout fallback — if no response in 3s, assume silent auth not available
+      setTimeout(() => {
+        if (_pendingResolve) { resolve(null); _pendingResolve = null; _pendingReject = null; }
+      }, 3000);
     });
   }
 
@@ -180,6 +195,7 @@ const Drive = (() => {
 
   return {
     connect,
+    connectSilent,
     isConnected,
     getToken,
     getFile,

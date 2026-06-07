@@ -140,6 +140,7 @@ async function loadFolder() {
 
     state.folderId  = folderId;
     state.folderName = folder.name;
+    saveLastFolder(folderId);
 
     DOM.folderMeta.innerHTML = `Loaded: <strong>${folder.name}</strong>`;
     DOM.folderMeta.classList.remove('hidden');
@@ -471,14 +472,39 @@ const _origSelectAsset = selectAsset;
 // Save on page unload
 window.addEventListener('beforeunload', saveSetup);
 
+// ─── Persist folder ID ────────────────────────────────────────────────────────
+
+function saveLastFolder(folderId) {
+  try { localStorage.setItem('pdp_last_folder', folderId); } catch {}
+}
+
+function getLastFolder() {
+  try { return localStorage.getItem('pdp_last_folder'); } catch { return null; }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-(function init() {
+(async function init() {
   showScreen(1);
 
-  // If Drive token already exists in memory (page reload during same session)
-  if (Drive.isConnected()) {
+  // Try silent auto-connect on every page load
+  DOM.btnConnectDrive.textContent = 'Connecting…';
+  DOM.btnConnectDrive.disabled = true;
+
+  const token = await Drive.connectSilent();
+
+  if (token) {
     setDriveConnected(true);
     DOM.cardFolder.classList.remove('hidden');
+
+    // Restore last folder automatically
+    const lastFolder = getLastFolder();
+    if (lastFolder) {
+      DOM.inputFolder.value = lastFolder;
+      await loadFolder();
+    }
+  } else {
+    DOM.btnConnectDrive.disabled = false;
+    DOM.btnConnectDrive.textContent = 'Connect Google Drive';
   }
 })();
