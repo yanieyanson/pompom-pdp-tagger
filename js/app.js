@@ -89,6 +89,13 @@ DOM.btnConnectDrive.addEventListener('click', async () => {
     setDriveConnected(true);
     DOM.cardFolder.classList.remove('hidden');
     showToast('Google Drive connected');
+
+    // Auto-reload last folder so saved assignments are restored
+    const lastFolder = getLastFolder();
+    if (lastFolder) {
+      DOM.inputFolder.value = lastFolder;
+      await loadFolder();
+    }
   } catch (e) {
     setDriveConnected(false);
     DOM.btnConnectDrive.disabled = false;
