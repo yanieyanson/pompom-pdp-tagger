@@ -37,9 +37,6 @@ const DOM = {
   footerS1:        $('footer-s1'),
   setupSummary:    $('setup-summary'),
   btnToTagger:     $('btn-to-tagger'),
-  // Screen 2
-  s2Summary:       $('s2-summary'),
-  btnBackSetup:    $('btn-back-setup'),
   // Modal
   modal:           $('modal'),
   modalBackdrop:   $('modal-backdrop'),
@@ -62,10 +59,6 @@ function showScreen(n) {
     btn.classList.toggle('active', num === n);
     if (!btn.disabled && num !== n) btn.blur();
   });
-  // Update Screen 2 placeholder text
-  if (n === 2) {
-    DOM.s2Summary.textContent = `${state.looks.length} look${state.looks.length !== 1 ? 's' : ''} configured from "${state.folderName || 'folder'}"`;
-  }
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
