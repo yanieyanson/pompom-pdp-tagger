@@ -42,21 +42,25 @@ async function floraRun(inputs) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inputs })
   });
-  if (!res.ok) throw new Error(`Flora run failed: ${res.status}`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    if (res.status === 402) throw new Error('Not enough Flora credits — top up your Flora workspace at app.flora.ai');
+    throw new Error(errData.details?.message || errData.error || `Flora run failed (${res.status})`);
+  }
   return res.json();
 }
 
 async function floraPollRun(runId, onProgress) {
   const start = Date.now();
-  while (Date.now() - start < 600000) {
+  while (Date.now() - start < 1200000) { // 20 min max
     const res  = await fetch(`${CONFIG.API_BASE}/flora?action=run-status&runId=${runId}`);
     const data = await res.json();
     if (data.status === 'completed') return data;
-    if (data.status === 'failed')    throw new Error(data.error_message || 'Run failed');
+    if (data.status === 'failed')    throw new Error(data.error_message || data.error_code || 'Run failed');
     onProgress(data.progress || 0);
     await sleep(10000);
   }
-  throw new Error('Run timed out');
+  throw new Error(`Timed out after 20 min — check Flora dashboard for run ${runId}`);
 }
 
 // ─── Upload a Drive file to Flora ─────────────────────────────────────────────
