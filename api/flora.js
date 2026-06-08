@@ -80,10 +80,10 @@ module.exports = async function handler(req, res) {
     // Body: { inputs: [{ id, type, value }], project_id }
     // Returns: { run_id, status }
     if (req.method === 'POST' && action === 'run') {
-      const { inputs, project_id } = req.body;
+      const { inputs } = req.body;
       const data = await floraFetch(`/techniques/${TECHNIQUE}/runs`, {
         method: 'POST',
-        body: JSON.stringify({ inputs, mode: 'async', project_id }),
+        body: JSON.stringify({ inputs, mode: 'async' }),
       });
       return res.json(data);
     }

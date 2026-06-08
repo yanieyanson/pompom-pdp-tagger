@@ -40,7 +40,7 @@ async function floraRun(inputs) {
   const res = await fetch(`${CONFIG.API_BASE}/flora?action=run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inputs, project_id: CONFIG.FLORA_PROJECT })
+    body: JSON.stringify({ inputs })
   });
   if (!res.ok) throw new Error(`Flora run failed: ${res.status}`);
   return res.json();
@@ -73,9 +73,11 @@ async function uploadDriveFileToFlora(fileId, filename) {
   const { asset_id, upload } = await floraReserve(filename, contentType);
 
   // 3. Upload directly to signed URL (S3 presigned POST)
+  const formFields = upload.form_fields || upload.formFields || {};
+  const fileField  = upload.file_field  || upload.fileField  || 'file';
   const form = new FormData();
-  for (const [k, v] of Object.entries(upload.form_fields || {})) form.append(k, v);
-  form.append(upload.file_field || 'file', blob, filename);
+  for (const [k, v] of Object.entries(formFields)) form.append(k, v);
+  form.append(fileField, blob, filename);
   const uploadRes = await fetch(upload.url, { method: 'POST', body: form });
   if (!uploadRes.ok && uploadRes.status !== 204) {
     throw new Error(`S3 upload failed: ${uploadRes.status}`);
