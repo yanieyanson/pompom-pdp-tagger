@@ -5,6 +5,26 @@
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// ─── Flora asset URL cache ────────────────────────────────────────────────────
+// Maps Drive file ID → Flora asset URL so re-runs skip re-uploading.
+// Flora docs confirm asset URLs are long-lived HTTPS URLs.
+
+const ASSET_CACHE_KEY = 'pdp_flora_asset_cache';
+
+function _assetCache() {
+  try { return JSON.parse(localStorage.getItem(ASSET_CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function _cacheAsset(driveId, floraUrl) {
+  try {
+    const c = _assetCache();
+    c[driveId] = floraUrl;
+    localStorage.setItem(ASSET_CACHE_KEY, JSON.stringify(c));
+  } catch {}
+}
+function _getCachedAsset(driveId) {
+  return _assetCache()[driveId] || null;
+}
+
 // ─── Flora API calls (via Vercel proxy) ───────────────────────────────────────
 
 async function floraReserve(filename, contentType) {
@@ -65,7 +85,14 @@ async function floraPollRun(runId, onProgress) {
 
 // ─── Upload a Drive file to Flora ─────────────────────────────────────────────
 
-async function uploadDriveFileToFlora(fileId, filename) {
+async function uploadDriveFileToFlora(fileId, filename, updateStatus) {
+  // Return cached URL if we've already uploaded this file
+  const cached = _getCachedAsset(fileId);
+  if (cached) {
+    updateStatus && updateStatus(`Using cached asset for ${filename}`);
+    return cached;
+  }
+
   const ext         = filename.split('.').pop().toLowerCase();
   const mimeTypes   = { heic:'image/heic', heif:'image/heif', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp' };
   const contentType = mimeTypes[ext] || 'application/octet-stream';
@@ -89,7 +116,11 @@ async function uploadDriveFileToFlora(fileId, filename) {
 
   // 4. Complete & wait for asset to be ready
   await floraComplete(asset_id);
-  return floraPollAsset(asset_id);
+  const url = await floraPollAsset(asset_id);
+
+  // Cache the URL so future runs skip this upload
+  _cacheAsset(fileId, url);
+  return url;
 }
 
 // ─── Drive output helpers ─────────────────────────────────────────────────────
@@ -169,8 +200,11 @@ async function runLook(lookIdx, updateStatus) {
   for (let i = 0; i < slots.length; i++) {
     const slotId = slots[i];
     const file   = inputs[slotId];
-    updateStatus(`Uploading ${slotId} (${i + 1}/${slots.length})…`);
-    assetUrls[slotId] = await uploadDriveFileToFlora(file.id, file.name);
+    const cached = _getCachedAsset(file.id);
+    updateStatus(cached
+      ? `${slotId} (${i + 1}/${slots.length}) — cached ✓`
+      : `Uploading ${slotId} (${i + 1}/${slots.length})…`);
+    assetUrls[slotId] = await uploadDriveFileToFlora(file.id, file.name, updateStatus);
   }
 
   // Build technique inputs array
