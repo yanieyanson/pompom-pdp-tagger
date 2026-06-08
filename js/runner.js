@@ -256,8 +256,12 @@ const _runResults = {}; // idx → 'done' | 'failed' | 'skip'
 
 function initRunScreen() {
   renderRunReview();
-  document.getElementById('btn-run-all').addEventListener('click', runAll);
-  document.getElementById('btn-back-s2').addEventListener('click', () => showScreen(2));
+  document.getElementById('btn-run-all').onclick = runAll;
+  document.getElementById('btn-back-s2').onclick = () => showScreen(2);
+  // Restore Re-run buttons on any status rows from a previous run
+  state.looks.forEach((_, idx) => {
+    if (document.getElementById(`status-row-${idx}`)) addRerunButton(idx);
+  });
 }
 
 function renderRunReview() {
