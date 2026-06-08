@@ -211,6 +211,10 @@ async function runLook(lookIdx, updateStatus) {
   return { runId: run_id, links };
 }
 
+// ─── Run result tracking ──────────────────────────────────────────────────────
+
+const _runResults = {}; // idx → 'done' | 'failed' | 'skip'
+
 // ─── Screen 3 init ────────────────────────────────────────────────────────────
 
 function initRunScreen() {
@@ -260,53 +264,61 @@ function renderRunReview() {
   html += '</div>';
   container.innerHTML = html;
 
-  // Cost estimate
-  const readyCount = state.looks.filter((l, idx) => {
-    const inputs = buildInputsWithFallbacks(l.inputs || {});
-    return ['sku-top','model-face','background'].every(s => inputs[s]);
-  }).length;
-  document.getElementById('run-cost-est').textContent =
-    `${readyCount} look${readyCount !== 1 ? 's' : ''} ready · ~$${(readyCount * CONFIG.COST_PER_RUN).toFixed(2)} estimated`;
+  updateCostEst();
 }
 
-async function runAll() {
-  const btn      = document.getElementById('btn-run-all');
-  const controls = document.getElementById('run-controls');
-  const list     = document.getElementById('run-status-list');
+function updateCostEst() {
+  const failedIndices = _getFailedIndices();
+  const readyCount = failedIndices.length > 0
+    ? failedIndices.length
+    : state.looks.filter(l => {
+        const inp = buildInputsWithFallbacks(l.inputs || {});
+        return ['sku-top','model-face','background'].every(s => inp[s]);
+      }).length;
+  const label = failedIndices.length > 0 ? 'failed look' : 'look';
+  document.getElementById('run-cost-est').textContent =
+    `${readyCount} ${label}${readyCount !== 1 ? 's' : ''} · ~$${(readyCount * CONFIG.COST_PER_RUN).toFixed(2)} estimated`;
+}
 
-  btn.disabled   = true;
-  btn.textContent = 'Running…';
+function _getFailedIndices() {
+  return Object.entries(_runResults)
+    .filter(([, r]) => r === 'failed')
+    .map(([i]) => parseInt(i));
+}
 
-  // Ensure Drive token is fresh before starting the run
+async function _executeRun(indices) {
   try {
     await Drive.ensureToken();
   } catch (e) {
     showToast('Drive session expired — please reconnect Google Drive', 'error');
-    btn.disabled = false;
-    btn.textContent = 'Run All Looks';
     return;
   }
-  list.classList.remove('hidden');
-  list.innerHTML = '';
 
-  // Build status rows
-  state.looks.forEach((look, idx) => {
-    const row = document.createElement('div');
+  const list = document.getElementById('run-status-list');
+  list.classList.remove('hidden');
+
+  // Build or reset status rows for this batch
+  for (const idx of indices) {
+    let row = document.getElementById(`status-row-${idx}`);
+    if (!row) {
+      row = document.createElement('div');
+      row.id = `status-row-${idx}`;
+      list.appendChild(row);
+    }
     row.className = 'run-status-row';
-    row.id = `status-row-${idx}`;
     row.innerHTML = `
-      <div class="run-status-look">${look.name}</div>
+      <div class="run-status-look">${state.looks[idx].name}</div>
       <div class="run-status-msg" id="status-msg-${idx}">Pending</div>
       <div class="run-status-icon" id="status-icon-${idx}">·</div>
       <div class="run-status-links" id="status-links-${idx}"></div>
     `;
-    list.appendChild(row);
-  });
+  }
 
-  for (let idx = 0; idx < state.looks.length; idx++) {
+  for (const idx of indices) {
     const inputs = buildInputsWithFallbacks(state.looks[idx].inputs || {});
     if (!['sku-top','model-face','background'].every(s => inputs[s])) {
       setStatus(idx, 'Skipped — missing required slots', 'skip');
+      _runResults[idx] = 'skip';
       continue;
     }
 
@@ -315,12 +327,68 @@ async function runAll() {
       const { runId, links } = await runLook(idx, msg => setStatus(idx, msg, 'running'));
       setStatus(idx, '✓ Done', 'done');
       showOutputLinks(idx, links);
+      _runResults[idx] = 'done';
     } catch (e) {
       setStatus(idx, '✗ ' + e.message, 'failed');
+      _runResults[idx] = 'failed';
     }
   }
+}
+
+async function runAll() {
+  const btn = document.getElementById('btn-run-all');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+
+  // Clear previous results and rebuild full status list
+  Object.keys(_runResults).forEach(k => delete _runResults[k]);
+  document.getElementById('run-status-list').innerHTML = '';
+
+  const allIndices = state.looks.map((_, i) => i);
+  await _executeRun(allIndices);
 
   btn.textContent = 'Run Complete';
+  _updateRetryButton();
+}
+
+async function runFailed() {
+  const failedIndices = _getFailedIndices();
+  if (!failedIndices.length) return;
+
+  const btn      = document.getElementById('btn-run-all');
+  const btnRetry = document.getElementById('btn-retry-failed');
+  btn.disabled = true;
+  if (btnRetry) { btnRetry.disabled = true; btnRetry.textContent = 'Retrying…'; }
+
+  // Clear failed results so they get re-evaluated
+  failedIndices.forEach(idx => delete _runResults[idx]);
+
+  await _executeRun(failedIndices);
+
+  btn.disabled = false;
+  btn.textContent = 'Run Complete';
+  _updateRetryButton();
+}
+
+function _updateRetryButton() {
+  const failedCount = _getFailedIndices().length;
+  let btnRetry = document.getElementById('btn-retry-failed');
+
+  if (failedCount === 0) {
+    if (btnRetry) btnRetry.remove();
+    return;
+  }
+
+  if (!btnRetry) {
+    btnRetry = document.createElement('button');
+    btnRetry.id = 'btn-retry-failed';
+    btnRetry.className = 'btn btn-outline btn-lg';
+    btnRetry.addEventListener('click', runFailed);
+    document.getElementById('run-controls').appendChild(btnRetry);
+  }
+  btnRetry.disabled = false;
+  btnRetry.textContent = `Re-run Failed (${failedCount})`;
+  updateCostEst();
 }
 
 function setStatus(idx, msg, state) {

@@ -1030,6 +1030,12 @@ body {
 
 .output-link:hover { opacity: 0.85; }
 
+#btn-retry-failed {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+#btn-retry-failed:hover { background: var(--primary); color: #fff; }
+
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {
