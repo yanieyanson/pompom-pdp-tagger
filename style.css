@@ -1036,6 +1036,65 @@ body {
 }
 #btn-retry-failed:hover { background: var(--primary); color: #fff; }
 
+.rerun-btn {
+  font-size: 12px;
+  padding: 3px 10px;
+  margin-left: 8px;
+  border-color: var(--grey-400);
+  color: var(--grey-600);
+}
+.rerun-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ─── Prompt notes (Screen 2) ───────────────────────────────────────────────── */
+
+.prompt-note-section {
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.prompt-note-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--grey-700);
+  margin-bottom: 6px;
+}
+
+.prompt-note-hint {
+  font-weight: 400;
+  color: var(--grey-400);
+}
+
+.prompt-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--grey-800);
+  background: var(--grey-50);
+  resize: vertical;
+  transition: border-color 0.15s;
+  line-height: 1.5;
+}
+
+.prompt-note-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: #fff;
+}
+
+.prompt-note-input::placeholder { color: var(--grey-400); }
+
+.tab-note-dot {
+  font-size: 11px;
+  color: var(--primary);
+  margin-left: 2px;
+}
+
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {

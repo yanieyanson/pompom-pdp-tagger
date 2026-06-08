@@ -463,14 +463,15 @@ function saveLooksState() {
   if (!state.folderId) return;
   try {
     const payload = state.looks.map(l => ({
-      name:   l.name,
-      model:  l.model  ? { id: l.model.id,  name: l.model.name  } : null,
-      bg:     l.bg     ? { id: l.bg.id,     name: l.bg.name     } : null,
-      inputs: l.inputs
+      name:       l.name,
+      model:      l.model  ? { id: l.model.id,  name: l.model.name  } : null,
+      bg:         l.bg     ? { id: l.bg.id,     name: l.bg.name     } : null,
+      inputs:     l.inputs
         ? Object.fromEntries(
             Object.entries(l.inputs).map(([k, v]) => [k, { id: v.id, name: v.name, source: v.source }])
           )
         : null,
+      promptNote: l.promptNote || null,
     }));
     localStorage.setItem('pdp_looks_' + state.folderId, JSON.stringify(payload));
   } catch {}
@@ -485,9 +486,10 @@ function restoreLooksState() {
     state.looks.forEach(look => {
       const s = saved.find(l => l.name === look.name);
       if (!s) return;
-      if (s.model) look.model = { ...s.model, blobUrl: Drive.getThumbnailUrl(s.model.id) };
-      if (s.bg)    look.bg    = { ...s.bg,    blobUrl: Drive.getThumbnailUrl(s.bg.id)    };
-      if (s.inputs) look.inputs = s.inputs;
+      if (s.model)      look.model      = { ...s.model, blobUrl: Drive.getThumbnailUrl(s.model.id) };
+      if (s.bg)         look.bg         = { ...s.bg,    blobUrl: Drive.getThumbnailUrl(s.bg.id)    };
+      if (s.inputs)     look.inputs     = s.inputs;
+      if (s.promptNote) look.promptNote = s.promptNote;
     });
   } catch {}
 }

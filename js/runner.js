@@ -212,11 +212,14 @@ async function runLook(lookIdx, updateStatus) {
     .filter(s => assetUrls[s])
     .map(s => ({ id: s, type: 'imageUrl', value: assetUrls[s] }));
 
-  // Add frontal prompt
+  // Add frontal prompt (append per-look note if set)
+  const promptText = look.promptNote
+    ? CONFIG.FRONTAL_PROMPT + '\n\nAdditional notes for this look: ' + look.promptNote
+    : CONFIG.FRONTAL_PROMPT;
   techniqueInputs.push({
     id: 'straight-on-full-body-frontal-prompt',
     type: 'text',
-    value: CONFIG.FRONTAL_PROMPT
+    value: promptText
   });
 
   // Fire technique
@@ -366,7 +369,28 @@ async function _executeRun(indices) {
       setStatus(idx, '✗ ' + e.message, 'failed');
       _runResults[idx] = 'failed';
     }
+    addRerunButton(idx);
   }
+}
+
+function addRerunButton(idx) {
+  const linksEl = document.getElementById(`status-links-${idx}`);
+  if (!linksEl) return;
+  linksEl.querySelectorAll('.rerun-btn').forEach(b => b.remove());
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-sm btn-outline rerun-btn';
+  btn.textContent = '↻ Re-run';
+  btn.addEventListener('click', () => runSingleLook(idx));
+  linksEl.appendChild(btn);
+}
+
+async function runSingleLook(idx) {
+  const linksEl = document.getElementById(`status-links-${idx}`);
+  const rerunBtn = linksEl?.querySelector('.rerun-btn');
+  if (rerunBtn) { rerunBtn.disabled = true; rerunBtn.textContent = 'Running…'; }
+  delete _runResults[idx];
+  await _executeRun([idx]);
+  _updateRetryButton();
 }
 
 async function runAll() {

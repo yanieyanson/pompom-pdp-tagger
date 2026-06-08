@@ -86,7 +86,8 @@ function renderLookTabs() {
     const allDone = filled === total;
     const btn     = document.createElement('button');
     btn.className = 'look-tab' + (idx === tagger.lookIdx ? ' active' : '') + (allDone ? ' done' : '');
-    btn.innerHTML = `${look.name} <span class="tab-badge">${filled}/${total}</span>`;
+    const noteTag = look.promptNote ? ' <span class="tab-note-dot" title="Has prompt note">✎</span>' : '';
+    btn.innerHTML = `${look.name} <span class="tab-badge">${filled}/${total}</span>${noteTag}`;
     btn.addEventListener('click', () => {
       tagger.lookIdx = idx;
       renderLookTabs();
@@ -156,6 +157,20 @@ function renderAssignmentGrid(idx) {
 
     card.appendChild(row);
   });
+
+  // Prompt notes textarea
+  const noteWrap = document.createElement('div');
+  noteWrap.className = 'prompt-note-section';
+  noteWrap.innerHTML = `
+    <label class="prompt-note-label">Prompt notes <span class="prompt-note-hint">— appended to base prompt for this look only</span></label>
+    <textarea class="prompt-note-input" placeholder='e.g. "navy structured blazer, single-breasted, notch lapel — NOT a dress"' rows="2">${look.promptNote || ''}</textarea>
+  `;
+  noteWrap.querySelector('textarea').addEventListener('input', e => {
+    state.looks[idx].promptNote = e.target.value;
+    if (typeof saveLooksState === 'function') saveLooksState();
+    renderLookTabs();
+  });
+  card.appendChild(noteWrap);
 
   grid.appendChild(card);
 
