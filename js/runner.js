@@ -91,7 +91,7 @@ async function uploadDriveFileToFlora(fileId, filename) {
 // ─── Drive output helpers ─────────────────────────────────────────────────────
 
 async function getOrCreateOutputFolder() {
-  // Look for existing "PDP Outputs" folder in root Drive folder
+  await Drive.ensureToken();
   const q = `'${state.folderId}' in parents and name = 'PDP Outputs' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
   const res = await fetch(`${CONFIG.DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name)`, {
     headers: { Authorization: `Bearer ${Drive.getToken()}` }
@@ -109,7 +109,7 @@ async function getOrCreateOutputFolder() {
 }
 
 async function uploadOutputToDrive(url, filename, folderId) {
-  // Download output from Flora CDN
+  await Drive.ensureToken();
   const res  = await fetch(url);
   const blob = await res.blob();
 
@@ -272,6 +272,16 @@ async function runAll() {
 
   btn.disabled   = true;
   btn.textContent = 'Running…';
+
+  // Ensure Drive token is fresh before starting the run
+  try {
+    await Drive.ensureToken();
+  } catch (e) {
+    showToast('Drive session expired — please reconnect Google Drive', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Run All Looks';
+    return;
+  }
   list.classList.remove('hidden');
   list.innerHTML = '';
 

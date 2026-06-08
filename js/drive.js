@@ -201,8 +201,17 @@ const Drive = (() => {
     return res.json();
   }
 
+  /** Silently refresh the token if it has expired */
+  async function ensureToken() {
+    if (isConnected()) return _token;
+    const tok = await connectSilent();
+    if (!tok) throw new Error('Google Drive session expired — please reconnect.');
+    return tok;
+  }
+
   /** Download a Drive file as a Blob (for upload to Flora) */
   async function downloadFile(fileId) {
+    await ensureToken();
     const res = await fetch(`${CONFIG.DRIVE_API}/files/${fileId}?alt=media`, {
       headers: { Authorization: `Bearer ${_token}` }
     });
@@ -213,6 +222,7 @@ const Drive = (() => {
   return {
     connect,
     connectSilent,
+    ensureToken,
     isConnected,
     getToken,
     getFile,
