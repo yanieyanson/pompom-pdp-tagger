@@ -53,7 +53,7 @@ async function floraPollRun(runId, onProgress) {
     const data = await res.json();
     if (data.status === 'completed') return data;
     if (data.status === 'failed')    throw new Error(data.error_message || 'Run failed');
-    onProgress(data.progress || 0, data.status);
+    onProgress(data.progress || 0);
     await sleep(10000);
   }
   throw new Error('Run timed out');
@@ -187,8 +187,8 @@ async function runLook(lookIdx, updateStatus) {
 
   // Poll
   updateStatus('Running…');
-  const completed = await floraPollRun(run_id, (progress, status) => {
-    updateStatus(`Flora running… ${Math.round(progress * 100)}%`);
+  const completed = await floraPollRun(run_id, (progress) => {
+    updateStatus(`Flora running… ${Math.round(progress)}%`);
   });
 
   // Save outputs to Drive
