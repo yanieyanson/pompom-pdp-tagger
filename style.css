@@ -902,6 +902,13 @@ body {
   color: var(--grey-500);
 }
 
+.review-cell-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
 .review-look-name {
   text-align: left;
   font-weight: 600;

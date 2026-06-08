@@ -258,10 +258,6 @@ function initRunScreen() {
   renderRunReview();
   document.getElementById('btn-run-all').onclick = runAll;
   document.getElementById('btn-back-s2').onclick = () => showScreen(2);
-  // Restore Re-run buttons on any status rows from a previous run
-  state.looks.forEach((_, idx) => {
-    if (document.getElementById(`status-row-${idx}`)) addRerunButton(idx);
-  });
 }
 
 function renderRunReview() {
@@ -294,16 +290,23 @@ function renderRunReview() {
           ${f ? `<img class="review-thumb" src="${Drive.getThumbnailUrl(f.id)}" title="${f.name}" onerror="this.style.opacity=0.2">` : '<span class="review-missing">—</span>'}
         </div>`;
       }).join('')}
-      <div class="review-cell">
+      <div class="review-cell review-cell-action">
         <span class="run-badge ${allReady ? 'ready' : 'warn'}" id="run-badge-${idx}">
           ${allReady ? 'Ready' : 'Missing slots'}
         </span>
+        <button class="btn btn-sm btn-outline rerun-btn" id="rerun-btn-${idx}" ${allReady ? '' : 'disabled'}>↻ Re-run</button>
       </div>
     </div>`;
   });
 
   html += '</div>';
   container.innerHTML = html;
+
+  // Wire Re-run buttons
+  state.looks.forEach((_, idx) => {
+    const btn = document.getElementById(`rerun-btn-${idx}`);
+    if (btn) btn.onclick = () => runSingleLook(idx);
+  });
 
   updateCostEst();
 }
@@ -389,11 +392,11 @@ function addRerunButton(idx) {
 }
 
 async function runSingleLook(idx) {
-  const linksEl = document.getElementById(`status-links-${idx}`);
-  const rerunBtn = linksEl?.querySelector('.rerun-btn');
-  if (rerunBtn) { rerunBtn.disabled = true; rerunBtn.textContent = 'Running…'; }
+  const tableBtn = document.getElementById(`rerun-btn-${idx}`);
+  if (tableBtn) { tableBtn.disabled = true; tableBtn.textContent = 'Running…'; }
   delete _runResults[idx];
   await _executeRun([idx]);
+  if (tableBtn) { tableBtn.disabled = false; tableBtn.textContent = '↻ Re-run'; }
   _updateRetryButton();
 }
 
